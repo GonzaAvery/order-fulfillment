@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: order-fulfillment
+  
+  # Configuración de base de datos
+  datasource:
+    url: jdbc:postgresql://localhost:5432/order_fulfillment
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  
+  # Configuración JPA
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  
+  # Configuración Kafka
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: fulfillment-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+      properties:
+        spring.json.trusted.packages: "*"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        acks: all
+        retries: 3
+        max-in-flight-requests-per-connection: 1
+
+# Actuator endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# Logging
+logging:
+  level:
+    com.delivery.fulfillment: INFO
+    org.springframework.kafka: WARN
+    org.hibernate: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{correlationId}] %-5level %logger{36} - %msg%n"
