@@ -90,8 +90,9 @@ Todos los eventos incluyen:
 ### Idempotencia
 
 - Los eventos incluyen un `EventId` único
-- El sistema mantiene un cache de eventos procesados (en producción usar Redis/Database)
-- Los eventos duplicados se detectan y se ignoran
+- El sistema mantiene una tabla `processed_events` en PostgreSQL con constraint único
+- Los eventos duplicados se detectan y se ignoran automáticamente
+- La idempotencia es persistente y sobrevive reinicios de la aplicación
 
 ### Trazabilidad
 
@@ -147,6 +148,8 @@ spring:
 
 ### Setup de Base de Datos
 
+La base de datos se crea automáticamente con Docker Compose. Si usas PostgreSQL local:
+
 ```sql
 CREATE DATABASE order_fulfillment;
 ```
@@ -154,8 +157,38 @@ CREATE DATABASE order_fulfillment;
 ### Setup de Kafka
 
 Los topics se crean automáticamente al iniciar la aplicación:
-- `order-events`: Topic principal para eventos
+- `order-events`: Topic principal para eventos (3 particiones)
 - `order-events-dlq`: Dead Letter Queue (preparado para uso futuro)
+
+### Contratos de Eventos
+
+Los esquemas JSON de los eventos están documentados en `/contracts/events`:
+- `OrderPlaced.v1.json`
+- `OrderAccepted.v1.json`
+- `CourierAssigned.v1.json`
+- `OrderCompleted.v1.json`
+- `OrderFailed.v1.json`
+
+## Quick Start
+
+Para levantar el sistema completo, consulta [QUICK_START.md](QUICK_START.md).
+
+### Resumen Rápido
+
+1. **Levantar infraestructura**:
+   ```bash
+   docker-compose up -d
+   ```
+
+2. **Levantar la aplicación**:
+   ```bash
+   mvn spring-boot:run
+   ```
+
+3. **Verificar health**:
+   ```bash
+   curl http://localhost:8080/actuator/health
+   ```
 
 ## Uso
 
@@ -177,11 +210,30 @@ curl -X POST http://localhost:8080/api/orders \
 curl http://localhost:8080/api/orders/{orderId}
 ```
 
+### Consultar Métricas
+
+```bash
+# Ver todas las métricas
+curl http://localhost:8080/actuator/metrics
+
+# Ver métrica específica
+curl http://localhost:8080/actuator/metrics/orders_created_total
+curl http://localhost:8080/actuator/metrics/events_processed_total
+curl http://localhost:8080/actuator/metrics/events_failed_total
+
+# Métricas en formato Prometheus
+curl http://localhost:8080/actuator/prometheus
+```
+
 ### Completar una Entrega
 
 ```bash
 curl -X POST http://localhost:8080/api/deliveries/{deliveryId}/complete
 ```
+
+### Ver Eventos en Kafka UI
+
+Abre `http://localhost:8081` en tu navegador para explorar topics y mensajes.
 
 ## Flujo Completo de un Pedido
 
@@ -257,7 +309,25 @@ curl -X POST http://localhost:8080/api/deliveries/{deliveryId}/complete
 - Crítico en sistemas distribuidos donde eventos pueden duplicarse
 - En producción, usar Redis o base de datos para persistir eventos procesados
 
-## Próximos Pasos (Mejoras Futuras)
+## Estado de Implementación
+
+### ✅ Completado
+
+1. **Levante local reproducible**: Docker Compose con PostgreSQL, Kafka y Kafka UI
+2. **Dominio funcionando end-to-end**: Order, Delivery, Courier con validación de transiciones
+3. **Contrato de eventos formalizado**: JSON Schemas versionados en `/contracts/events`
+4. **Kafka: publicación y consumo real**: Sistema event-driven completamente funcional
+5. **Idempotencia persistente**: Tabla `processed_events` con constraint único
+6. **Observabilidad visible**: 
+   - Logs estructurados con CorrelationId
+   - Métricas custom: `orders_created_total`, `events_processed_total`, `events_failed_total`
+   - Actuator habilitado con health, metrics y prometheus
+7. **Tests del sistema**: 
+   - Unit tests para validación de transiciones de estado
+   - Integration tests con Testcontainers (Postgres + Kafka)
+   - Test end-to-end del flujo completo
+
+### 🚀 Próximos Pasos (Mejoras Futuras)
 
 1. **Dead Letter Queue (DLQ)**: Implementar routing de eventos fallidos a DLQ después de N reintentos
 2. **Retry con Exponential Backoff**: Implementar estrategia de reintentos más sofisticada
@@ -266,34 +336,42 @@ curl -X POST http://localhost:8080/api/deliveries/{deliveryId}/complete
 5. **Event Sourcing**: Para auditoría completa y replay de eventos
 6. **Circuit Breaker**: Para resiliencia ante fallas de servicios externos
 7. **Distributed Tracing**: Integrar con Zipkin/Jaeger para trazabilidad completa
-8. **Métricas y Observabilidad**: Prometheus + Grafana para monitoreo
-9. **Tests de Integración**: Tests end-to-end del flujo completo
-10. **API Documentation**: OpenAPI/Swagger para documentación de APIs
+8. **Métricas avanzadas**: Prometheus + Grafana para dashboards de monitoreo
+9. **API Documentation**: OpenAPI/Swagger para documentación de APIs
+10. **Performance Testing**: Tests de carga y stress
 
 ## Estructura del Proyecto
 
 ```
-src/main/java/com/delivery/fulfillment/
-├── common/              # Código compartido
-│   ├── config/         # Configuraciones (Kafka, Jackson, etc.)
-│   └── events/         # Eventos de dominio base y consumidores
-├── order/              # Order Service
-│   ├── controller/     # REST endpoints
-│   ├── domain/         # Entidades y value objects
-│   ├── dto/            # Data Transfer Objects
-│   ├── events/         # Eventos de dominio del pedido
-│   ├── repository/     # Repositorios JPA
-│   └── service/        # Lógica de negocio
-├── delivery/           # Delivery Service
-│   ├── controller/     # REST endpoints
-│   ├── domain/         # Entidades
-│   ├── events/         # Eventos de dominio de entregas
-│   ├── repository/     # Repositorios JPA
-│   └── service/        # Lógica de negocio
-├── fulfillment/        # Fulfillment Service
-│   └── service/        # Orquestación del flujo
-└── notification/       # Notification Service
-    └── service/        # Generación de notificaciones
+order-fulfillment/
+├── contracts/           # Contratos de eventos (JSON Schemas)
+│   └── events/         # Esquemas versionados de eventos
+├── src/main/java/com/delivery/fulfillment/
+│   ├── common/              # Código compartido
+│   │   ├── config/         # Configuraciones (Kafka, Jackson, etc.)
+│   │   ├── events/         # Eventos de dominio base y consumidores
+│   │   └── observability/  # Métricas, logging, etc.
+│   ├── order/              # Order Service
+│   │   ├── controller/     # REST endpoints
+│   │   ├── domain/         # Entidades y value objects
+│   │   ├── dto/            # Data Transfer Objects
+│   │   ├── events/         # Eventos de dominio del pedido
+│   │   ├── repository/     # Repositorios JPA
+│   │   └── service/        # Lógica de negocio
+│   ├── delivery/           # Delivery Service
+│   │   ├── controller/     # REST endpoints
+│   │   ├── domain/         # Entidades
+│   │   ├── events/         # Eventos de dominio de entregas
+│   │   ├── repository/     # Repositorios JPA
+│   │   └── service/        # Lógica de negocio
+│   ├── fulfillment/        # Fulfillment Service
+│   │   └── service/        # Orquestación del flujo
+│   └── notification/       # Notification Service
+│       └── service/        # Generación de notificaciones
+└── src/test/java/          # Tests unitarios e integración
+    ├── com/delivery/fulfillment/
+    │   ├── order/domain/    # Tests de dominio
+    │   └── integration/    # Tests de integración con Testcontainers
 ```
 
 ## Licencia

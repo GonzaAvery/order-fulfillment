@@ -1,6 +1,7 @@
 package com.delivery.fulfillment.order.service;
 
 import com.delivery.fulfillment.common.events.EventPublisher;
+import com.delivery.fulfillment.common.observability.MetricsService;
 import com.delivery.fulfillment.order.domain.Order;
 import com.delivery.fulfillment.order.domain.OrderStatus;
 import com.delivery.fulfillment.order.dto.CreateOrderRequest;
@@ -25,10 +26,14 @@ public class OrderService {
 	
 	private final OrderRepository orderRepository;
 	private final EventPublisher eventPublisher;
+	private final MetricsService metricsService;
 	
-	public OrderService(OrderRepository orderRepository, EventPublisher eventPublisher) {
+	public OrderService(OrderRepository orderRepository, 
+	                    EventPublisher eventPublisher,
+	                    MetricsService metricsService) {
 		this.orderRepository = orderRepository;
 		this.eventPublisher = eventPublisher;
+		this.metricsService = metricsService;
 	}
 	
 	/**
@@ -54,6 +59,9 @@ public class OrderService {
 			order.getTotalAmount()
 		);
 		eventPublisher.publish(event);
+		
+		// Registrar métrica
+		metricsService.incrementOrdersCreated();
 		
 		logger.info("Order created: id={}, status={}", order.getId(), order.getStatus());
 		

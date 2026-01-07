@@ -1,5 +1,6 @@
 package com.delivery.fulfillment.common.events;
 
+import com.delivery.fulfillment.common.observability.MetricsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.NamedType;
 import org.slf4j.Logger;
@@ -11,13 +12,11 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Consumidor de eventos de Kafka.
- * Maneja la deserialización, idempotencia y routing de eventos.
+ * Maneja la deserialización, idempotencia persistente y routing de eventos.
  */
 @Component
 public class EventConsumer {
@@ -27,16 +26,19 @@ public class EventConsumer {
 	private final ObjectMapper objectMapper;
 	private final FulfillmentEventRouter fulfillmentEventRouter;
 	private final NotificationEventRouter notificationEventRouter;
-	
-	// Cache de eventos procesados para idempotencia (en producción usar Redis/Database)
-	private final Map<UUID, Boolean> processedEvents = new ConcurrentHashMap<>();
+	private final IdempotencyService idempotencyService;
+	private final MetricsService metricsService;
 	
 	public EventConsumer(ObjectMapper objectMapper,
 	                     FulfillmentEventRouter fulfillmentEventRouter,
-	                     NotificationEventRouter notificationEventRouter) {
+	                     NotificationEventRouter notificationEventRouter,
+	                     IdempotencyService idempotencyService,
+	                     MetricsService metricsService) {
 		this.objectMapper = objectMapper;
 		this.fulfillmentEventRouter = fulfillmentEventRouter;
 		this.notificationEventRouter = notificationEventRouter;
+		this.idempotencyService = idempotencyService;
+		this.metricsService = metricsService;
 		
 		// Registrar subtipos de eventos para deserialización polimórfica
 		registerEventSubtypes();
@@ -61,8 +63,15 @@ public class EventConsumer {
 			// Deserializar evento
 			DomainEvent event = objectMapper.readValue(message, DomainEvent.class);
 			
-			// Verificar idempotencia
-			if (processedEvents.containsKey(event.getEventId())) {
+			// Verificar idempotencia persistente
+			// Intenta registrar el evento. Si ya existe, retorna false.
+			boolean isNewEvent = idempotencyService.tryProcessEvent(
+				event.getEventId(), 
+				event.getEventType(), 
+				event.getCorrelationId()
+			);
+			
+			if (!isNewEvent) {
 				logger.warn("Duplicate event detected, skipping: eventId={}, type={}", 
 					event.getEventId(), event.getEventType());
 				acknowledgment.acknowledge();
@@ -76,14 +85,18 @@ public class EventConsumer {
 			fulfillmentEventRouter.route(event);
 			notificationEventRouter.route(event);
 			
-			// Marcar como procesado
-			processedEvents.put(event.getEventId(), true);
+			// Registrar métrica de evento procesado exitosamente
+			metricsService.incrementEventsProcessed();
 			
 			// Acknowledge después de procesamiento exitoso
 			acknowledgment.acknowledge();
 			
 		} catch (Exception e) {
 			logger.error("Error processing event: key={}", key, e);
+			
+			// Registrar métrica de evento fallido
+			metricsService.incrementEventsFailed();
+			
 			// En producción, esto debería enviar a DLQ después de N reintentos
 			// Por ahora, no hacemos acknowledge para que Kafka reintente
 			// En un sistema real, implementar retry con exponential backoff

@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OrderCompleted Event",
+  "description": "Evento emitido cuando un pedido se completa exitosamente",
+  "type": "object",
+  "version": "1.0.0",
+  "required": ["eventId", "correlationId", "occurredAt", "eventType", "payload"],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador único del evento para idempotencia"
+    },
+    "correlationId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identificador de correlación para trazabilidad end-to-end (generalmente el orderId)"
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp ISO 8601 del momento en que ocurrió el evento"
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["OrderCompleted"],
+      "description": "Tipo del evento"
+    },
+    "payload": {
+      "type": "object",
+      "required": ["orderId", "deliveryId"],
+      "properties": {
+        "orderId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Identificador único del pedido completado"
+        },
+        "deliveryId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Identificador único de la entrega completada"
+        }
+      }
+    }
+  }
+}
+
