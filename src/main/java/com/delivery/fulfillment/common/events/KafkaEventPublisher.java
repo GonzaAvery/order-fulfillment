@@ -8,8 +8,8 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * Implementación de EventPublisher usando Kafka.
- * Serializa eventos a JSON y los publica en el topic correspondiente.
+ * EventPublisher implementation using Kafka.
+ * Serializes events to JSON and publishes them to the corresponding topic.
  */
 @Component
 public class KafkaEventPublisher implements EventPublisher {
@@ -28,9 +28,9 @@ public class KafkaEventPublisher implements EventPublisher {
 	public void publish(DomainEvent event) {
 		try {
 			String eventJson = objectMapper.writeValueAsString(event);
-			String topic = "order-events"; // Topic único para todos los eventos
+			String topic = "order-events"; // Single topic for all events
 			
-			// Usar correlationId como key para garantizar orden dentro del mismo flujo
+			// Use correlationId as key to guarantee order within the same flow
 			kafkaTemplate.send(topic, event.getCorrelationId().toString(), eventJson);
 			
 			logger.info("Published event: type={}, eventId={}, correlationId={}", 

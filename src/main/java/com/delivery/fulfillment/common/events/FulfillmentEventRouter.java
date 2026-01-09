@@ -8,8 +8,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Router de eventos para el Fulfillment Service.
- * Enruta eventos relevantes al servicio correspondiente.
+ * Event router for the Fulfillment Service.
+ * Routes relevant events to the corresponding service.
  */
 @Component
 public class FulfillmentEventRouter {
@@ -31,7 +31,7 @@ public class FulfillmentEventRouter {
 			}
 		} catch (Exception e) {
 			logger.error("Error routing event to fulfillment service: type={}", event.getEventType(), e);
-			throw e; // Re-lanzar para que el consumer maneje el error
+			throw e; // Re-throw so the consumer handles the error
 		}
 	}
 }

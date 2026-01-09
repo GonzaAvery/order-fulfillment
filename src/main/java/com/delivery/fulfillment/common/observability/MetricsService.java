@@ -5,8 +5,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Service;
 
 /**
- * Servicio para registrar métricas custom del sistema.
- * Expone métricas de negocio para observabilidad.
+ * Service for registering custom system metrics.
+ * Exposes business metrics for observability.
  */
 @Service
 public class MetricsService {
@@ -31,24 +31,25 @@ public class MetricsService {
 	}
 	
 	/**
-	 * Incrementa el contador de pedidos creados.
+	 * Increments the orders created counter.
 	 */
 	public void incrementOrdersCreated() {
 		ordersCreatedCounter.increment();
 	}
 	
 	/**
-	 * Incrementa el contador de eventos procesados exitosamente.
+	 * Increments the successfully processed events counter.
 	 */
 	public void incrementEventsProcessed() {
 		eventsProcessedCounter.increment();
 	}
 	
 	/**
-	 * Incrementa el contador de eventos fallidos.
+	 * Increments the failed events counter.
 	 */
 	public void incrementEventsFailed() {
 		eventsFailedCounter.increment();
 	}
 }
+
 

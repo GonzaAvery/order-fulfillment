@@ -16,8 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
 /**
- * Servicio de gestión de pedidos.
- * Responsable de crear pedidos y publicar eventos correspondientes.
+ * Order management service.
+ * Responsible for creating orders and publishing corresponding events.
  */
 @Service
 public class OrderService {
@@ -37,7 +37,7 @@ public class OrderService {
 	}
 	
 	/**
-	 * Crea un nuevo pedido y publica el evento OrderPlaced.
+	 * Creates a new order and publishes the OrderPlaced event.
 	 */
 	@Transactional
 	public OrderResponse createOrder(CreateOrderRequest request) {
@@ -51,7 +51,7 @@ public class OrderService {
 		
 		order = orderRepository.save(order);
 		
-		// Publicar evento de dominio
+		// Publish domain event
 		OrderPlaced event = new OrderPlaced(
 			order.getId(),
 			order.getCustomerId(),
@@ -60,7 +60,7 @@ public class OrderService {
 		);
 		eventPublisher.publish(event);
 		
-		// Registrar métrica
+		// Record metric
 		metricsService.incrementOrdersCreated();
 		
 		logger.info("Order created: id={}, status={}", order.getId(), order.getStatus());
@@ -69,7 +69,7 @@ public class OrderService {
 	}
 	
 	/**
-	 * Obtiene un pedido por su ID.
+	 * Gets an order by its ID.
 	 */
 	public OrderResponse getOrder(UUID orderId) {
 		Order order = orderRepository.findById(orderId)
@@ -79,8 +79,8 @@ public class OrderService {
 	}
 	
 	/**
-	 * Actualiza el estado de un pedido.
-	 * Usado por otros servicios que consumen eventos.
+	 * Updates the status of an order.
+	 * Used by other services that consume events.
 	 */
 	@Transactional
 	public void updateOrderStatus(UUID orderId, OrderStatus newStatus) {
@@ -94,7 +94,7 @@ public class OrderService {
 	}
 	
 	/**
-	 * Asocia una entrega a un pedido.
+	 * Associates a delivery to an order.
 	 */
 	@Transactional
 	public void assignDelivery(UUID orderId, UUID deliveryId) {

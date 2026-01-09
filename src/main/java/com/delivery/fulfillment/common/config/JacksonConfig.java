@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
 /**
- * Configuración de Jackson para serialización/deserialización de eventos.
+ * Jackson configuration for event serialization/deserialization.
  */
 @Configuration
 public class JacksonConfig {

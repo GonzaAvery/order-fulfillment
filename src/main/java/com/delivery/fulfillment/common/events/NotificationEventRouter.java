@@ -6,8 +6,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Router de eventos para el Notification Service.
- * Enruta todos los eventos al servicio de notificaciones.
+ * Event router for the Notification Service.
+ * Routes all events to the notification service.
  */
 @Component
 public class NotificationEventRouter {
@@ -22,10 +22,10 @@ public class NotificationEventRouter {
 	
 	public void route(DomainEvent event) {
 		try {
-			// El notification service maneja todos los tipos de eventos
+			// The notification service handles all event types
 			notificationService.handleEvent(event);
 		} catch (Exception e) {
-			// No re-lanzamos el error para que las notificaciones no bloqueen el procesamiento
+			// We don't re-throw the error so notifications don't block processing
 			logger.error("Error routing event to notification service: type={}", event.getEventType(), e);
 		}
 	}

@@ -12,8 +12,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Configuración de Kafka.
- * Define los topics necesarios para el sistema.
+ * Kafka configuration.
+ * Defines the topics needed for the system.
  */
 @Configuration
 public class KafkaConfig {

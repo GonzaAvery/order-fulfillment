@@ -5,8 +5,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Entidad que registra eventos procesados para garantizar idempotencia.
- * Evita el procesamiento duplicado de eventos.
+ * Entity that records processed events to guarantee idempotency.
+ * Prevents duplicate event processing.
  */
 @Entity
 @Table(name = "processed_events", 
@@ -32,7 +32,7 @@ public class ProcessedEvent {
 	@Column(name = "correlation_id")
 	private UUID correlationId;
 	
-	// Constructor para JPA
+	// Constructor for JPA
 	protected ProcessedEvent() {
 	}
 	
@@ -69,4 +69,5 @@ public class ProcessedEvent {
 		return correlationId;
 	}
 }
+
 

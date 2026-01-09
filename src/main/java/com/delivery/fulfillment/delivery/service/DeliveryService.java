@@ -19,8 +19,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Servicio de gestión de entregas.
- * Maneja el ciclo de vida de las entregas y la asignación de couriers.
+ * Delivery management service.
+ * Handles the lifecycle of deliveries and courier assignment.
  */
 @Service
 public class DeliveryService {
@@ -40,7 +40,7 @@ public class DeliveryService {
 	}
 	
 	/**
-	 * Crea una nueva entrega para un pedido.
+	 * Creates a new delivery for an order.
 	 */
 	@Transactional
 	public UUID createDelivery(UUID orderId, String deliveryAddress) {
@@ -49,14 +49,14 @@ public class DeliveryService {
 		Delivery delivery = new Delivery(orderId, deliveryAddress);
 		delivery = deliveryRepository.save(delivery);
 		
-		// Intentar asignar courier automáticamente
+		// Try to assign courier automatically
 		assignCourierIfAvailable(delivery.getId(), delivery.getOrderId());
 		
 		return delivery.getId();
 	}
 	
 	/**
-	 * Asigna un courier disponible a una entrega.
+	 * Assigns an available courier to a delivery.
 	 */
 	@Transactional
 	public void assignCourierIfAvailable(UUID deliveryId, UUID orderId) {
@@ -71,16 +71,16 @@ public class DeliveryService {
 		List<Courier> availableCouriers = courierRepository.findByAvailableTrue();
 		if (availableCouriers.isEmpty()) {
 			logger.warn("No available couriers for delivery: {}", deliveryId);
-			// En un sistema real, esto podría disparar un retry o notificación
+			// In a real system, this could trigger a retry or notification
 			return;
 		}
 		
-		// Seleccionar el primer courier disponible (lógica simplificada)
+		// Select the first available courier (simplified logic)
 		Courier courier = availableCouriers.get(0);
 		delivery.assignCourier(courier.getId(), courier.getName());
 		deliveryRepository.save(delivery);
 		
-		// Publicar evento
+		// Publish event
 		CourierAssigned event = new CourierAssigned(
 			orderId, // correlationId
 			deliveryId,
@@ -94,7 +94,7 @@ public class DeliveryService {
 	}
 	
 	/**
-	 * Actualiza el estado de una entrega.
+	 * Updates the status of a delivery.
 	 */
 	@Transactional
 	public void updateDeliveryStatus(UUID deliveryId, DeliveryStatus newStatus) {
@@ -108,14 +108,14 @@ public class DeliveryService {
 	}
 	
 	/**
-	 * Simula un retraso en la entrega y publica el evento correspondiente.
+	 * Simulates a delivery delay and publishes the corresponding event.
 	 */
 	@Transactional
 	public void reportDelay(UUID deliveryId, UUID orderId, Duration delayDuration, String reason) {
 		Delivery delivery = deliveryRepository.findById(deliveryId)
 			.orElseThrow(() -> new IllegalArgumentException("Delivery not found: " + deliveryId));
 		
-		// Publicar evento de retraso
+		// Publish delay event
 		DeliveryDelayed event = new DeliveryDelayed(
 			orderId, // correlationId
 			deliveryId,
@@ -130,7 +130,7 @@ public class DeliveryService {
 	}
 	
 	/**
-	 * Marca una entrega como completada.
+	 * Marks a delivery as completed.
 	 */
 	@Transactional
 	public void completeDelivery(UUID deliveryId) {
@@ -144,7 +144,7 @@ public class DeliveryService {
 	}
 	
 	/**
-	 * Obtiene una entrega por ID de pedido.
+	 * Gets a delivery by order ID.
 	 */
 	public Delivery getDeliveryByOrderId(UUID orderId) {
 		return deliveryRepository.findByOrderId(orderId)
@@ -152,7 +152,7 @@ public class DeliveryService {
 	}
 	
 	/**
-	 * Obtiene una entrega por su ID.
+	 * Gets a delivery by its ID.
 	 */
 	public Delivery getDeliveryById(UUID deliveryId) {
 		return deliveryRepository.findById(deliveryId)

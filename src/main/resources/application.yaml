@@ -49,6 +49,16 @@ management:
       prometheus:
         enabled: true
 
+# Swagger/OpenAPI configuration
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+
 # Logging
 logging:
   level:

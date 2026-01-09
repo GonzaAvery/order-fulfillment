@@ -6,7 +6,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * DTO para respuesta de consulta de pedido.
+ * DTO for order query response.
  */
 public record OrderResponse(
 	UUID id,

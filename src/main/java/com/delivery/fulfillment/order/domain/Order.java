@@ -6,8 +6,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Entidad que representa un pedido.
- * Maneja el ciclo de vida completo del pedido desde su creación hasta su finalización.
+ * Entity that represents an order.
+ * Handles the complete order lifecycle from creation to completion.
  */
 @Entity
 @Table(name = "orders")
@@ -40,9 +40,9 @@ public class Order {
 	private Instant updatedAt;
 	
 	@Column
-	private UUID deliveryId; // Referencia a la entrega asociada
+	private UUID deliveryId; // Reference to the associated delivery
 	
-	// Constructor para JPA
+	// Constructor for JPA
 	protected Order() {
 	}
 	
@@ -57,8 +57,8 @@ public class Order {
 	}
 	
 	/**
-	 * Transiciona el estado del pedido validando que la transición sea válida.
-	 * @throws IllegalStateException si la transición no es válida
+	 * Transitions the order state validating that the transition is valid.
+	 * @throws IllegalStateException if the transition is not valid
 	 */
 	public void transitionTo(OrderStatus newStatus) {
 		if (!this.status.canTransitionTo(newStatus)) {
@@ -71,7 +71,7 @@ public class Order {
 	}
 	
 	/**
-	 * Marca el pedido como fallido con una razón.
+	 * Marks the order as failed with a reason.
 	 */
 	public void markAsFailed(String reason) {
 		transitionTo(OrderStatus.FAILED);
@@ -79,7 +79,7 @@ public class Order {
 	}
 	
 	/**
-	 * Asocia una entrega a este pedido.
+	 * Associates a delivery to this order.
 	 */
 	public void assignDelivery(UUID deliveryId) {
 		this.deliveryId = deliveryId;

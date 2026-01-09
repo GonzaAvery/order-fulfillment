@@ -9,8 +9,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
 /**
- * Servicio para manejar idempotencia de eventos de manera persistente.
- * Intenta insertar un evento procesado y retorna true si fue procesado por primera vez.
+ * Service for handling event idempotency persistently.
+ * Attempts to insert a processed event and returns true if it was processed for the first time.
  */
 @Service
 public class IdempotencyService {
@@ -26,16 +26,16 @@ public class IdempotencyService {
 	}
 	
 	/**
-	 * Intenta registrar un evento como procesado.
-	 * Retorna true si el evento no había sido procesado antes, false si ya existía.
+	 * Attempts to register an event as processed.
+	 * Returns true if the event had not been processed before, false if it already existed.
 	 * 
-	 * Este método usa una estrategia "insert or ignore" basada en constraint único.
-	 * Si el evento ya existe, se lanza DataIntegrityViolationException que se captura.
+	 * This method uses an "insert or ignore" strategy based on unique constraint.
+	 * If the event already exists, DataIntegrityViolationException is thrown and caught.
 	 */
 	@Transactional
 	public boolean tryProcessEvent(UUID eventId, String eventType, UUID correlationId) {
 		try {
-			// Intentar insertar el evento procesado
+			// Attempt to insert the processed event
 			ProcessedEvent processedEvent = new ProcessedEvent(
 				eventId, 
 				CONSUMER_NAME, 
@@ -45,21 +45,22 @@ public class IdempotencyService {
 			processedEventRepository.save(processedEvent);
 			
 			logger.debug("Event registered as processed: eventId={}, type={}", eventId, eventType);
-			return true; // Evento procesado por primera vez
+			return true; // Event processed for the first time
 			
 		} catch (DataIntegrityViolationException e) {
-			// El evento ya fue procesado (violación de constraint único)
+			// Event was already processed (unique constraint violation)
 			logger.warn("Duplicate event detected (already processed): eventId={}, type={}", 
 				eventId, eventType);
-			return false; // Evento ya procesado
+			return false; // Event already processed
 		}
 	}
 	
 	/**
-	 * Verifica si un evento ya fue procesado.
+	 * Checks if an event was already processed.
 	 */
 	public boolean isEventProcessed(UUID eventId) {
 		return processedEventRepository.existsByEventId(eventId);
 	}
 }
+
 

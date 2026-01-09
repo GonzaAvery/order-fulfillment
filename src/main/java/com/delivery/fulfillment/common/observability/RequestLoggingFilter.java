@@ -14,8 +14,8 @@ import java.io.IOException;
 import java.util.UUID;
 
 /**
- * Filtro para logging estructurado de requests.
- * Agrega correlationId a los logs para trazabilidad.
+ * Filter for structured request logging.
+ * Adds correlationId to logs for traceability.
  */
 @Component
 public class RequestLoggingFilter extends OncePerRequestFilter {

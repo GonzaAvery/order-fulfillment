@@ -1,50 +1,136 @@
 # Order Fulfillment and Delivery Tracking Platform
 
-## Descripción General
+> Backend platform for order and delivery management inspired by large-scale delivery systems. Implements event-driven architecture with Kafka, persistent idempotency, and complete observability.
 
-Este proyecto implementa el backend de una plataforma de delivery enfocada en order fulfillment, inspirada en sistemas de producto masivo como los de food delivery a gran escala. El objetivo principal es modelar y resolver problemas reales de sistemas críticos, donde la confiabilidad, la consistencia y la experiencia del usuario son prioritarias.
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.9-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Kafka](https://img.shields.io/badge/Kafka-7.5.0-blue.svg)](https://kafka.apache.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue.svg)](https://www.postgresql.org/)
 
-La plataforma cubre todo el ciclo de vida de un pedido, desde su creación hasta su entrega (o fallo), poniendo especial énfasis en el manejo de estados complejos, eventos, reintentos y trazabilidad.
+## Overview
 
-## Arquitectura
+This project implements the backend of a delivery platform focused on order fulfillment, modeling real-world problems of critical systems where reliability, consistency, and user experience are priorities.
 
-### Estilo Arquitectónico
+The platform covers the complete lifecycle of an order from creation to delivery (or failure), with emphasis on:
+- Complex state management with validation
+- Asynchronous event-based communication
+- Persistent idempotency
+- End-to-end traceability
+- Complete observability
 
-- **Arquitectura de microservicios**: Separación clara de responsabilidades por dominio
-- **Comunicación asincrónica**: Basada en eventos usando Apache Kafka
-- **Event-Driven Architecture**: Desacoplamiento mediante eventos de dominio
+## Architecture
 
-### Servicios Principales
+### Architecture Diagram
 
-1. **Order Service** (`com.delivery.fulfillment.order`)
-   - Creación y consulta de pedidos
-   - Gestión del estado del pedido
-   - API REST: `/api/orders`
+```mermaid
+graph TB
+    subgraph "Client"
+        API[API REST]
+    end
+    
+    subgraph "Spring Boot Application"
+        OC[Order Controller]
+        DC[Delivery Controller]
+        
+        subgraph "Domain Services"
+            OS[Order Service]
+            DS[Delivery Service]
+            FS[Fulfillment Service]
+            NS[Notification Service]
+        end
+        
+        subgraph "Events"
+            EP[Event Publisher]
+            EC[Event Consumer]
+            IR[Idempotency Service]
+        end
+    end
+    
+    subgraph "Infrastructure"
+        PG[(PostgreSQL)]
+        KF[Kafka]
+        KUI[Kafka UI]
+    end
+    
+    API --> OC
+    API --> DC
+    OC --> OS
+    DC --> DS
+    DC --> FS
+    
+    OS --> EP
+    EP --> KF
+    KF --> EC
+    EC --> IR
+    EC --> FS
+    EC --> NS
+    
+    OS --> PG
+    DS --> PG
+    IR --> PG
+    
+    KF --> KUI
+```
 
-2. **Fulfillment Service** (`com.delivery.fulfillment.fulfillment`)
-   - Orquestación del flujo completo del pedido
-   - Consume eventos y coordina acciones entre servicios
-   - Maneja transiciones de estado complejas
+### Main Components
 
-3. **Delivery Service** (`com.delivery.fulfillment.delivery`)
-   - Gestión de entregas y sus estados
-   - Asignación de couriers
-   - API REST: `/api/deliveries`
+1. **Order Service** - Order management
+   - Order creation and querying
+   - State transition validation
+   - API: `/api/orders`
 
-4. **Notification Service** (`com.delivery.fulfillment.notification`)
-   - Simulación de feedback al usuario
-   - Consume eventos y genera notificaciones
-   - En producción, integraría con servicios de email/SMS/push
+2. **Fulfillment Service** - Orchestration
+   - Consumes events and coordinates services
+   - Handles complete order flow
+   - Complex state transitions
 
-### Entidades Principales
+3. **Delivery Service** - Delivery management
+   - Delivery creation and tracking
+   - Automatic courier assignment
+   - API: `/api/deliveries`
 
-- **Order**: Representa el pedido realizado por el usuario
-- **Delivery**: Representa la ejecución logística del pedido
-- **Courier**: Actor responsable de realizar la entrega
+4. **Notification Service** - Notifications
+   - Consumes events and generates notifications
+   - Ready for email/SMS/push integration
 
-## Flujo de Estados
+## Order Flow
 
-### Estados del Pedido (OrderStatus)
+### Flow Diagram
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant OrderService
+    participant Kafka
+    participant FulfillmentService
+    participant DeliveryService
+    participant NotificationService
+    
+    Client->>OrderService: POST /api/orders
+    OrderService->>OrderService: Create Order (PLACED)
+    OrderService->>Kafka: Publish OrderPlaced
+    OrderService->>Client: 201 Created
+    
+    Kafka->>FulfillmentService: OrderPlaced Event
+    FulfillmentService->>OrderService: Update to ACCEPTED
+    FulfillmentService->>Kafka: Publish OrderAccepted
+    FulfillmentService->>DeliveryService: Create Delivery (PENDING)
+    FulfillmentService->>DeliveryService: Assign Courier
+    DeliveryService->>Kafka: Publish CourierAssigned
+    
+    Kafka->>FulfillmentService: CourierAssigned Event
+    FulfillmentService->>OrderService: Update to PICKED_UP
+    FulfillmentService->>OrderService: Update to IN_TRANSIT
+    
+    Kafka->>NotificationService: All Events
+    NotificationService->>NotificationService: Generate Notifications
+    
+    Client->>DeliveryService: POST /deliveries/{id}/complete
+    DeliveryService->>OrderService: Update to DELIVERED
+    DeliveryService->>Kafka: Publish OrderCompleted
+```
+
+### Order States
 
 ```
 PLACED → ACCEPTED → PICKED_UP → IN_TRANSIT → DELIVERED
@@ -54,327 +140,417 @@ CANCELED  CANCELED    FAILED      FAILED
  FAILED    FAILED
 ```
 
-**Transiciones válidas:**
-- `PLACED` puede transicionar a: `ACCEPTED`, `CANCELED`, `FAILED`
-- `ACCEPTED` puede transicionar a: `PICKED_UP`, `CANCELED`, `FAILED`
-- `PICKED_UP` puede transicionar a: `IN_TRANSIT`, `FAILED`
-- `IN_TRANSIT` puede transicionar a: `DELIVERED`, `FAILED`
-- Estados terminales: `DELIVERED`, `CANCELED`, `FAILED`
+**Terminal states:** `DELIVERED`, `CANCELED`, `FAILED`
 
-### Estados de la Entrega (DeliveryStatus)
-
-```
-PENDING → COURIER_ASSIGNED → PICKED_UP → IN_TRANSIT → DELIVERED
-   ↓            ↓               ↓            ↓
- FAILED       FAILED          FAILED       FAILED
-```
-
-## Eventos de Dominio
-
-El sistema se basa en eventos de dominio para desacoplar servicios:
-
-- **OrderPlaced**: Emitido cuando un usuario crea un pedido
-- **OrderAccepted**: Emitido cuando el sistema acepta un pedido
-- **CourierAssigned**: Emitido cuando se asigna un courier a una entrega
-- **DeliveryDelayed**: Emitido cuando una entrega se retrasa
-- **OrderCompleted**: Emitido cuando un pedido se completa exitosamente
-- **OrderFailed**: Emitido cuando un pedido falla
-
-Todos los eventos incluyen:
-- **EventId**: Identificador único para idempotencia
-- **CorrelationId**: Identificador de correlación para trazabilidad end-to-end
-- **OccurredAt**: Timestamp del evento
-
-## Confiabilidad y Resiliencia
-
-### Idempotencia
-
-- Los eventos incluyen un `EventId` único
-- El sistema mantiene una tabla `processed_events` en PostgreSQL con constraint único
-- Los eventos duplicados se detectan y se ignoran automáticamente
-- La idempotencia es persistente y sobrevive reinicios de la aplicación
-
-### Trazabilidad
-
-- **CorrelationId**: Permite trazar el flujo completo de un pedido a través de todos los servicios
-- Todos los eventos están correlacionados con el pedido original
-- Logs estructurados incluyen correlationId para debugging
-
-### Manejo de Errores
-
-- Los errores en el procesamiento de eventos se registran
-- En producción, eventos fallidos después de N reintentos irían a Dead Letter Queue (DLQ)
-- El sistema marca pedidos como `FAILED` cuando no puede procesarlos
-
-### Retries
-
-- Kafka está configurado con `retries: 3` para el producer
-- El consumer usa `enable-auto-commit: false` para control manual de commits
-- En producción, implementar exponential backoff para reintentos
-
-## Tecnologías Utilizadas
-
-- **Java 21**: Lenguaje de programación
-- **Spring Boot 3.5.9**: Framework principal
-- **Spring Data JPA**: Persistencia de datos
-- **PostgreSQL**: Base de datos relacional
-- **Apache Kafka**: Broker de mensajería para eventos
-- **Spring Kafka**: Integración con Kafka
-- **Jackson**: Serialización/deserialización JSON
-
-## Configuración
-
-### Requisitos Previos
-
-- Java 21
-- Maven 3.6+
-- PostgreSQL 12+
-- Apache Kafka 2.8+ (o usar Docker Compose)
-
-### Variables de Entorno
-
-El archivo `application.yaml` contiene la configuración. Ajusta según tu entorno:
-
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/order_fulfillment
-    username: postgres
-    password: postgres
-  
-  kafka:
-    bootstrap-servers: localhost:9092
-```
-
-### Setup de Base de Datos
-
-La base de datos se crea automáticamente con Docker Compose. Si usas PostgreSQL local:
-
-```sql
-CREATE DATABASE order_fulfillment;
-```
-
-### Setup de Kafka
-
-Los topics se crean automáticamente al iniciar la aplicación:
-- `order-events`: Topic principal para eventos (3 particiones)
-- `order-events-dlq`: Dead Letter Queue (preparado para uso futuro)
-
-### Contratos de Eventos
-
-Los esquemas JSON de los eventos están documentados en `/contracts/events`:
-- `OrderPlaced.v1.json`
-- `OrderAccepted.v1.json`
-- `CourierAssigned.v1.json`
-- `OrderCompleted.v1.json`
-- `OrderFailed.v1.json`
-
-## Quick Start
-
-Para levantar el sistema completo, consulta [QUICK_START.md](QUICK_START.md).
-
-### Resumen Rápido
-
-1. **Levantar infraestructura**:
-   ```bash
-   docker-compose up -d
-   ```
-
-2. **Levantar la aplicación**:
-   ```bash
-   mvn spring-boot:run
-   ```
-
-3. **Verificar health**:
-   ```bash
-   curl http://localhost:8080/actuator/health
-   ```
-
-## Uso
-
-### Crear un Pedido
+## Demo in 3 Commands
 
 ```bash
+# 1. Start infrastructure (PostgreSQL + Kafka)
+docker-compose up -d
+
+# 2. Start the application
+mvn spring-boot:run
+
+# 3. Create an order and see the flow
 curl -X POST http://localhost:8080/api/orders \
   -H "Content-Type: application/json" \
-  -d '{
-    "customerId": "550e8400-e29b-41d4-a716-446655440000",
-    "deliveryAddress": "Av. Corrientes 1234, CABA",
-    "totalAmount": 1500.50
-  }'
+  -d '{"customerId":"550e8400-e29b-41d4-a716-446655440000","deliveryAddress":"Av. Corrientes 1234, CABA","totalAmount":1500.50}'
 ```
 
-### Consultar un Pedido
+**Then:**
+- Query the order: `curl http://localhost:8080/api/orders/{orderId}`
+- View events: `http://localhost:8081` (Kafka UI)
+- View API docs: `http://localhost:8080/swagger-ui.html`
+
+## Prerequisites
+
+- **Java 21**
+- **Maven 3.6+**
+- **Docker & Docker Compose** (for infrastructure)
+
+## Technologies
+
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| Java | 21 | Programming language |
+| Spring Boot | 3.5.9 | Main framework |
+| Spring Data JPA | - | Persistence |
+| PostgreSQL | 15 | Database |
+| Apache Kafka | 7.5.0 | Async messaging |
+| SpringDoc OpenAPI | 2.3.0 | API documentation |
+| Testcontainers | 1.19.3 | Integration tests |
+
+## Additional Documentation
+
+- **[QUICK_START.md](QUICK_START.md)** - Detailed startup guide
+- **[API_TESTING.md](API_TESTING.md)** - Testing guide with Swagger and Postman
+- **[contracts/events/](contracts/events/)** - Event contracts (JSON Schemas)
+
+## Design Decisions
+
+### 1. Modular Monolith vs Microservices
+
+**Decision:** Modular monolith with clear domain separation.
+
+**Reason:**
+- Faster development for MVP
+- Simpler testing (single application)
+- Same separation of concerns as microservices
+- Future migration to real microservices without major refactor
+- Lower initial operational complexity
+
+**Trade-off:** Lower independent scalability per service, but sufficient for demonstration.
+
+---
+
+### 2. Event-Driven Architecture with Kafka
+
+**Decision:** Kafka as messaging broker for asynchronous communication.
+
+**Reason:**
+- Real decoupling between services
+- Horizontal scalability (partitions)
+- Event replay for debugging and recovery
+- Ready for real distributed systems
+- Order guaranteed per partition (using correlationId as key)
+
+**Alternatives considered:**
+- RabbitMQ: Lower complexity but less scalable
+- Redis Pub/Sub: Faster but no persistence or guaranteed order
+
+---
+
+### 3. Persistent Idempotency in Database
+
+**Decision:** `processed_events` table with unique constraint in PostgreSQL.
+
+**Reason:**
+- Persistence that survives restarts
+- Simplicity: no additional Redis required
+- Transactional consistency with the rest of the domain
+- Easy to audit and query
+
+**Alternatives considered:**
+- Redis: Faster but requires additional infrastructure
+- In-memory cache: Doesn't survive restarts (duplicate risk)
+
+**Implementation:**
+- Unique constraint on `(event_id, consumer)`
+- "Insert or ignore" strategy with `DataIntegrityViolationException`
+- Transactional to guarantee atomicity
+
+---
+
+### 4. Explicit State Machine
+
+**Decision:** Transition validation in domain entities.
+
+**Reason:**
+- Prevents inconsistent states at runtime
+- Clearly documents valid flow
+- Facilitates debugging (clear errors)
+- Guarantees data consistency
+- Simpler tests (centralized validation)
+
+**Implementation:**
+- `canTransitionTo()` method in state enums
+- Validation in entity `transitionTo()` method
+- `IllegalStateException` with descriptive message
+
+---
+
+### 5. CorrelationId for Traceability
+
+**Decision:** CorrelationId in all events (generally the orderId).
+
+**Reason:**
+- End-to-end traceability of an order
+- Essential for debugging in distributed systems
+- Facilitates observability and monitoring
+- Allows grouping logs by business flow
+- Foundation for future distributed tracing
+
+**Implementation:**
+- CorrelationId in MDC for structured logs
+- Used as key in Kafka to guarantee order
+- Included in all domain events
+
+---
+
+### 6. Custom Metrics with Micrometer
+
+**Decision:** Business metrics exposed via Spring Actuator.
+
+**Reason:**
+- Observability of business metrics (not just technical)
+- Native integration with Prometheus
+- Easy to extend and add new metrics
+- Industry standard
+
+**Implemented metrics:**
+- `orders_created_total` - Total orders created
+- `events_processed_total` - Total events processed successfully
+- `events_failed_total` - Total failed events
+
+---
+
+### 7. Versioned Event Contracts
+
+**Decision:** Versioned JSON Schemas in `/contracts/events`.
+
+**Reason:**
+- Clear and accessible documentation
+- Event validation (future)
+- Contract between services
+- Facilitates integration with other systems
+- Explicit versioning for evolution
+
+**Structure:**
+- One schema per event type
+- Versioning in filename (`.v1.json`)
+- Documented required fields
+
+---
+
+### 8. Tests with Testcontainers
+
+**Decision:** Integration tests with PostgreSQL and Kafka in containers.
+
+**Reason:**
+- Real tests against real infrastructure
+- No complex mocks required
+- Detects integration problems early
+- Confidence in complete flow
+
+**Trade-off:** Slower tests but more reliable.
+
+## Future Improvements
+
+### Short Term (1-2 months)
+
+#### 1. Dead Letter Queue (DLQ)
+**Priority:** High  
+**Effort:** Medium  
+**Impact:** Critical for production
+
+Implement automatic routing of failed events to DLQ after N retries with exponential backoff.
+
+**Benefits:**
+- Problematic events don't block processing
+- Facilitates debugging of failed events
+- Allows manual reprocessing
+
+---
+
+#### 2. Retry with Exponential Backoff
+**Priority:** High  
+**Effort:** Low-Medium  
+**Impact:** Improves resilience
+
+Replace simple Kafka retry with configurable exponential backoff strategy.
+
+**Benefits:**
+- Reduces load on temporarily failing services
+- Improves success rate in automatic recovery
+
+---
+
+#### 3. Distributed Tracing (Zipkin/Jaeger)
+**Priority:** Medium  
+**Effort:** Medium  
+**Impact:** Improves observability
+
+Integrate distributed tracing to visualize the complete flow of an order across all services.
+
+**Benefits:**
+- Clear visualization of latencies
+- Bottleneck identification
+- More efficient debugging
+
+---
+
+### Medium Term (3-6 months)
+
+#### 4. Saga Pattern
+**Priority:** Medium  
+**Effort:** High  
+**Impact:** Distributed transaction handling
+
+Implement Saga Pattern for transactions involving multiple services with compensation.
+
+**Use cases:**
+- Order cancellation with refund
+- Inventory and billing updates
+- Complex operation rollback
+
+---
+
+#### 5. CQRS (Command Query Responsibility Segregation)
+**Priority:** Medium  
+**Effort:** High  
+**Impact:** Read scalability
+
+Separate write and read models to optimize queries without affecting commands.
+
+**Benefits:**
+- Optimized queries without affecting writes
+- Independent scalability
+- Read models specific to use cases
+
+---
+
+#### 6. Event Sourcing
+**Priority:** Low  
+**Effort:** Very High  
+**Impact:** Complete audit and replay
+
+Store events as source of truth for complete audit and replay capability.
+
+**Benefits:**
+- Complete system audit
+- Event replay for debugging
+- State reconstruction at any point
+
+---
+
+### Long Term (6+ months)
+
+#### 7. Circuit Breaker
+**Priority:** Medium  
+**Effort:** Medium  
+**Impact:** Resilience against external failures
+
+Implement Circuit Breaker for external services (payments, notifications, etc.).
+
+**Benefits:**
+- Prevents cascading failures
+- Automatic fallback
+- Automatic recovery
+
+---
+
+#### 8. Advanced Metrics and Dashboards
+**Priority:** Low  
+**Effort:** Medium  
+**Impact:** Improves monitoring
+
+Integrate Prometheus + Grafana with predefined dashboards.
+
+**Dashboards:**
+- Orders per minute rate
+- Average delivery time
+- Failure rate by type
+- Event processing latency
+
+---
+
+#### 9. Performance Testing
+**Priority:** Medium  
+**Effort:** Medium  
+**Impact:** Scalability validation
+
+Implement load and stress tests to validate system limits.
+
+**Target metrics:**
+- 1000 orders/minute
+- P95 latency < 500ms
+- 99.9% uptime
+
+---
+
+#### 10. Migration to Real Microservices
+**Priority:** Low (when needed)  
+**Effort:** Very High  
+**Impact:** Independent scalability
+
+Separate services into independent applications when traffic justifies it.
+
+**Considerations:**
+- Only when there's real need to scale independently
+- Requires additional infrastructure (service mesh, etc.)
+- Higher operational complexity
+
+---
+
+## Implementation Status
+
+### Completed
+
+- [x] Reproducible local setup (Docker Compose)
+- [x] End-to-end working domain
+- [x] Formalized event contracts (JSON Schemas)
+- [x] Kafka: real publication and consumption
+- [x] Persistent idempotency (PostgreSQL)
+- [x] Observability (structured logs + metrics)
+- [x] Tests (unit + integration with Testcontainers)
+- [x] API documentation (Swagger/OpenAPI)
+- [x] Postman collection
+
+### In Progress
+
+N/A - Project in stable state
+
+### Pending
+
+See [Future Improvements](#future-improvements) section
+
+## Testing
 
 ```bash
-curl http://localhost:8080/api/orders/{orderId}
+# Run all tests
+mvn test
+
+# Run only unit tests
+mvn test -Dtest=*Test
+
+# Run only integration tests
+mvn test -Dtest=*IntegrationTest
 ```
 
-### Consultar Métricas
+## API Endpoints
 
-```bash
-# Ver todas las métricas
-curl http://localhost:8080/actuator/metrics
+### Orders
+- `POST /api/orders` - Create order
+- `GET /api/orders/{id}` - Query order
 
-# Ver métrica específica
-curl http://localhost:8080/actuator/metrics/orders_created_total
-curl http://localhost:8080/actuator/metrics/events_processed_total
-curl http://localhost:8080/actuator/metrics/events_failed_total
+### Deliveries
+- `GET /api/deliveries/order/{orderId}` - Query delivery by order
+- `POST /api/deliveries/{deliveryId}/complete` - Complete delivery
 
-# Métricas en formato Prometheus
-curl http://localhost:8080/actuator/prometheus
-```
+### Actuator
+- `GET /actuator/health` - Health check
+- `GET /actuator/metrics` - Metrics list
+- `GET /actuator/metrics/{name}` - Specific metric
+- `GET /actuator/prometheus` - Prometheus metrics
 
-### Completar una Entrega
+### Swagger
+- `GET /swagger-ui.html` - Swagger UI interface
+- `GET /api-docs` - OpenAPI JSON
 
-```bash
-curl -X POST http://localhost:8080/api/deliveries/{deliveryId}/complete
-```
-
-### Ver Eventos en Kafka UI
-
-Abre `http://localhost:8081` en tu navegador para explorar topics y mensajes.
-
-## Flujo Completo de un Pedido
-
-1. **Usuario crea pedido** → `POST /api/orders`
-   - Se crea `Order` con estado `PLACED`
-   - Se publica evento `OrderPlaced`
-
-2. **Fulfillment Service procesa OrderPlaced**
-   - Cambia estado a `ACCEPTED`
-   - Publica evento `OrderAccepted`
-   - Crea `Delivery` con estado `PENDING`
-   - Asigna courier disponible (si hay)
-   - Publica evento `CourierAssigned` (si se asignó)
-
-3. **Fulfillment Service procesa CourierAssigned**
-   - Cambia estado del pedido a `PICKED_UP` y luego a `IN_TRANSIT`
-   - Actualiza estado de la entrega
-
-4. **Courier completa entrega** → `POST /api/deliveries/{id}/complete`
-   - Cambia estado del pedido a `DELIVERED`
-   - Cambia estado de la entrega a `DELIVERED`
-   - Publica evento `OrderCompleted`
-
-5. **Notification Service** consume todos los eventos y genera notificaciones (simuladas en logs)
-
-## Decisiones de Diseño
-
-### 1. Monolito Modular vs Microservicios Reales
-
-**Decisión**: Implementar como monolito modular con separación clara de dominios.
-
-**Razón**: Para un MVP y demostración de conceptos, un monolito modular permite:
-- Desarrollo más rápido
-- Testing más simple
-- Misma separación de responsabilidades que microservicios
-- Fácil migración a microservicios reales después
-
-### 2. Event-Driven con Kafka
-
-**Decisión**: Usar Kafka para comunicación asíncrona entre servicios.
-
-**Razón**: 
-- Desacoplamiento real entre servicios
-- Escalabilidad horizontal
-- Replay de eventos para debugging
-- Preparado para sistemas distribuidos reales
-
-### 3. Máquina de Estados Explícita
-
-**Decisión**: Validar transiciones de estado en las entidades.
-
-**Razón**:
-- Previene estados inconsistentes
-- Documenta claramente el flujo válido
-- Facilita debugging y testing
-- Garantiza consistencia de datos
-
-### 4. CorrelationId para Trazabilidad
-
-**Decisión**: Usar CorrelationId en todos los eventos.
-
-**Razón**:
-- Permite trazar el flujo completo de un pedido
-- Esencial para debugging en sistemas distribuidos
-- Facilita observabilidad y monitoreo
-
-### 5. Idempotencia con EventId
-
-**Decisión**: Cada evento tiene un EventId único y se verifica antes de procesar.
-
-**Razón**:
-- Previene procesamiento duplicado
-- Crítico en sistemas distribuidos donde eventos pueden duplicarse
-- En producción, usar Redis o base de datos para persistir eventos procesados
-
-## Estado de Implementación
-
-### ✅ Completado
-
-1. **Levante local reproducible**: Docker Compose con PostgreSQL, Kafka y Kafka UI
-2. **Dominio funcionando end-to-end**: Order, Delivery, Courier con validación de transiciones
-3. **Contrato de eventos formalizado**: JSON Schemas versionados en `/contracts/events`
-4. **Kafka: publicación y consumo real**: Sistema event-driven completamente funcional
-5. **Idempotencia persistente**: Tabla `processed_events` con constraint único
-6. **Observabilidad visible**: 
-   - Logs estructurados con CorrelationId
-   - Métricas custom: `orders_created_total`, `events_processed_total`, `events_failed_total`
-   - Actuator habilitado con health, metrics y prometheus
-7. **Tests del sistema**: 
-   - Unit tests para validación de transiciones de estado
-   - Integration tests con Testcontainers (Postgres + Kafka)
-   - Test end-to-end del flujo completo
-
-### 🚀 Próximos Pasos (Mejoras Futuras)
-
-1. **Dead Letter Queue (DLQ)**: Implementar routing de eventos fallidos a DLQ después de N reintentos
-2. **Retry con Exponential Backoff**: Implementar estrategia de reintentos más sofisticada
-3. **Saga Pattern**: Para transacciones distribuidas complejas
-4. **CQRS**: Separar comandos y consultas para mejor escalabilidad
-5. **Event Sourcing**: Para auditoría completa y replay de eventos
-6. **Circuit Breaker**: Para resiliencia ante fallas de servicios externos
-7. **Distributed Tracing**: Integrar con Zipkin/Jaeger para trazabilidad completa
-8. **Métricas avanzadas**: Prometheus + Grafana para dashboards de monitoreo
-9. **API Documentation**: OpenAPI/Swagger para documentación de APIs
-10. **Performance Testing**: Tests de carga y stress
-
-## Estructura del Proyecto
+## Project Structure
 
 ```
 order-fulfillment/
-├── contracts/           # Contratos de eventos (JSON Schemas)
-│   └── events/         # Esquemas versionados de eventos
-├── src/main/java/com/delivery/fulfillment/
-│   ├── common/              # Código compartido
-│   │   ├── config/         # Configuraciones (Kafka, Jackson, etc.)
-│   │   ├── events/         # Eventos de dominio base y consumidores
-│   │   └── observability/  # Métricas, logging, etc.
-│   ├── order/              # Order Service
-│   │   ├── controller/     # REST endpoints
-│   │   ├── domain/         # Entidades y value objects
-│   │   ├── dto/            # Data Transfer Objects
-│   │   ├── events/         # Eventos de dominio del pedido
-│   │   ├── repository/     # Repositorios JPA
-│   │   └── service/        # Lógica de negocio
-│   ├── delivery/           # Delivery Service
-│   │   ├── controller/     # REST endpoints
-│   │   ├── domain/         # Entidades
-│   │   ├── events/         # Eventos de dominio de entregas
-│   │   ├── repository/     # Repositorios JPA
-│   │   └── service/        # Lógica de negocio
-│   ├── fulfillment/        # Fulfillment Service
-│   │   └── service/        # Orquestación del flujo
-│   └── notification/       # Notification Service
-│       └── service/        # Generación de notificaciones
-└── src/test/java/          # Tests unitarios e integración
-    ├── com/delivery/fulfillment/
-    │   ├── order/domain/    # Tests de dominio
-    │   └── integration/    # Tests de integración con Testcontainers
+├── contracts/              # Event contracts
+│   └── events/            # Versioned JSON Schemas
+├── postman/                # Postman collection
+├── src/main/java/
+│   └── com/delivery/fulfillment/
+│       ├── common/         # Shared code
+│       │   ├── config/      # Configurations
+│       │   ├── events/      # Event system
+│       │   └── observability/  # Metrics and logging
+│       ├── order/          # Order Service
+│       ├── delivery/       # Delivery Service
+│       ├── fulfillment/    # Fulfillment Service
+│       └── notification/   # Notification Service
+└── src/test/java/          # Tests
 ```
 
-## Licencia
+## License
 
-Este proyecto es para fines educativos y demostración.
+This project is for educational and demonstration purposes.
 
+---
+
+**Developed to demonstrate distributed systems architecture**

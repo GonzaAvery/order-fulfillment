@@ -1,10 +1,10 @@
-# Contratos de Eventos
+# Event Contracts
 
-Este directorio contiene los esquemas JSON (JSON Schema) que definen la estructura de los eventos del sistema.
+This directory contains JSON Schemas that define the structure of system events.
 
-## Estructura de Eventos
+## Event Structure
 
-Todos los eventos siguen la misma estructura base:
+All events follow the same base structure:
 
 ```json
 {
@@ -16,67 +16,66 @@ Todos los eventos siguen la misma estructura base:
 }
 ```
 
-### Campos Obligatorios
+### Required Fields
 
-- **eventId**: Identificador único del evento para garantizar idempotencia
-- **correlationId**: Identificador de correlación para trazabilidad end-to-end (generalmente el orderId)
-- **occurredAt**: Timestamp ISO 8601 del momento en que ocurrió el evento
-- **eventType**: Tipo del evento (OrderPlaced, OrderAccepted, etc.)
-- **payload**: Contenido específico del evento según su tipo
+- **eventId**: Unique event identifier to guarantee idempotency
+- **correlationId**: Correlation identifier for end-to-end traceability (generally the orderId)
+- **occurredAt**: ISO 8601 timestamp of when the event occurred
+- **eventType**: Event type (OrderPlaced, OrderAccepted, etc.)
+- **payload**: Event-specific content according to its type
 
-## Eventos Disponibles
+## Available Events
 
 ### OrderPlaced.v1.json
-Emitido cuando un usuario crea un pedido.
+Emitted when a user creates an order.
 
 **Payload:**
-- `orderId`: UUID del pedido
-- `customerId`: UUID del cliente
-- `deliveryAddress`: Dirección de entrega
-- `totalAmount`: Monto total del pedido
+- `orderId`: Order UUID
+- `customerId`: Customer UUID
+- `deliveryAddress`: Delivery address
+- `totalAmount`: Total order amount
 
 ### OrderAccepted.v1.json
-Emitido cuando el sistema acepta un pedido.
+Emitted when the system accepts an order.
 
 **Payload:**
-- `orderId`: UUID del pedido aceptado
+- `orderId`: Accepted order UUID
 
 ### CourierAssigned.v1.json
-Emitido cuando se asigna un courier a una entrega.
+Emitted when a courier is assigned to a delivery.
 
 **Payload:**
-- `deliveryId`: UUID de la entrega
-- `orderId`: UUID del pedido asociado
-- `courierId`: UUID del courier asignado
-- `courierName`: Nombre del courier
+- `deliveryId`: Delivery UUID
+- `orderId`: Associated order UUID
+- `courierId`: Assigned courier UUID
+- `courierName`: Courier name
 
 ### OrderCompleted.v1.json
-Emitido cuando un pedido se completa exitosamente.
+Emitted when an order is completed successfully.
 
 **Payload:**
-- `orderId`: UUID del pedido completado
-- `deliveryId`: UUID de la entrega completada
+- `orderId`: Completed order UUID
+- `deliveryId`: Completed delivery UUID
 
 ### OrderFailed.v1.json
-Emitido cuando un pedido falla.
+Emitted when an order fails.
 
 **Payload:**
-- `orderId`: UUID del pedido que falló
-- `failureReason`: Razón del fallo
+- `orderId`: Failed order UUID
+- `failureReason`: Failure reason
 
-## Versionado
+## Versioning
 
-Los eventos están versionados explícitamente en el nombre del archivo (`.v1.json`). Cuando se necesite hacer cambios incompatibles, se creará una nueva versión (`.v2.json`).
+Events are explicitly versioned in the filename (`.v1.json`). When incompatible changes are needed, a new version will be created (`.v2.json`).
 
-## Validación
+## Validation
 
-Estos schemas pueden ser usados para:
-- Validar eventos antes de publicarlos
-- Generar documentación automática
-- Validar eventos en tests
-- Generar tipos/clases en diferentes lenguajes
+These schemas can be used for:
+- Validating events before publishing
+- Generating automatic documentation
+- Validating events in tests
+- Generating types/classes in different languages
 
-## Uso en el Código
+## Usage in Code
 
-Los eventos en el código Java deben cumplir con estos contratos. Los schemas sirven como documentación y contrato entre servicios.
-
+Events in Java code must comply with these contracts. Schemas serve as documentation and contract between services.

@@ -12,9 +12,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * Servicio de notificaciones (simplificado).
- * Simula el envío de notificaciones al usuario ante eventos relevantes.
- * En un sistema real, esto podría integrarse con servicios de email, SMS, push, etc.
+ * Notification service (simplified).
+ * Simulates sending notifications to the user for relevant events.
+ * In a real system, this could integrate with email, SMS, push services, etc.
  */
 @Service
 public class NotificationService {
@@ -22,7 +22,7 @@ public class NotificationService {
 	private static final Logger logger = LoggerFactory.getLogger(NotificationService.class);
 	
 	/**
-	 * Procesa eventos y genera notificaciones para el usuario.
+	 * Processes events and generates notifications for the user.
 	 */
 	public void handleEvent(DomainEvent event) {
 		switch (event.getEventType()) {
@@ -37,38 +37,38 @@ public class NotificationService {
 	}
 	
 	private void handleOrderPlaced(OrderPlaced event) {
-		logger.info("📧 [NOTIFICATION] Order placed - OrderId: {}, CustomerId: {}, Amount: {}", 
+		logger.info("[NOTIFICATION] Order placed - OrderId: {}, CustomerId: {}, Amount: {}", 
 			event.getOrderId(), event.getCustomerId(), event.getTotalAmount());
-		// En producción: enviar email/SMS al usuario confirmando el pedido
+		// In production: send email/SMS to user confirming the order
 	}
 	
 	private void handleOrderAccepted(OrderAccepted event) {
-		logger.info("📧 [NOTIFICATION] Order accepted - OrderId: {}", event.getOrderId());
-		// En producción: notificar al usuario que el pedido está siendo procesado
+		logger.info("[NOTIFICATION] Order accepted - OrderId: {}", event.getOrderId());
+		// In production: notify user that the order is being processed
 	}
 	
 	private void handleCourierAssigned(CourierAssigned event) {
-		logger.info("📧 [NOTIFICATION] Courier assigned - OrderId: {}, Courier: {} ({})", 
+		logger.info("[NOTIFICATION] Courier assigned - OrderId: {}, Courier: {} ({})", 
 			event.getOrderId(), event.getCourierName(), event.getCourierId());
-		// En producción: notificar al usuario con información del courier
+		// In production: notify user with courier information
 	}
 	
 	private void handleDeliveryDelayed(DeliveryDelayed event) {
-		logger.warn("📧 [NOTIFICATION] Delivery delayed - OrderId: {}, Delay: {}, Reason: {}", 
+		logger.warn("[NOTIFICATION] Delivery delayed - OrderId: {}, Delay: {}, Reason: {}", 
 			event.getOrderId(), event.getDelayDuration(), event.getReason());
-		// En producción: notificar al usuario sobre el retraso y ofrecer compensación si aplica
+		// In production: notify user about the delay and offer compensation if applicable
 	}
 	
 	private void handleOrderCompleted(OrderCompleted event) {
-		logger.info("📧 [NOTIFICATION] Order completed - OrderId: {}, DeliveryId: {}", 
+		logger.info("[NOTIFICATION] Order completed - OrderId: {}, DeliveryId: {}", 
 			event.getOrderId(), event.getDeliveryId());
-		// En producción: enviar confirmación de entrega y solicitar feedback
+		// In production: send delivery confirmation and request feedback
 	}
 	
 	private void handleOrderFailed(OrderFailed event) {
-		logger.error("📧 [NOTIFICATION] Order failed - OrderId: {}, Reason: {}", 
+		logger.error("[NOTIFICATION] Order failed - OrderId: {}, Reason: {}", 
 			event.getOrderId(), event.getFailureReason());
-		// En producción: notificar al usuario sobre la falla y ofrecer reembolso/reintento
+		// In production: notify user about the failure and offer refund/retry
 	}
 }
 

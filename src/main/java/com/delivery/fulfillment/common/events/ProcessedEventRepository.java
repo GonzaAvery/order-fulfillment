@@ -24,3 +24,4 @@ public interface ProcessedEventRepository extends JpaRepository<ProcessedEvent, 
 	boolean existsByEventId(UUID eventId);
 }
 
+

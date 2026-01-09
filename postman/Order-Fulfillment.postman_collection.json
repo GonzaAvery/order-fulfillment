@@ -1,0 +1,251 @@
+{
+	"info": {
+		"_postman_id": "order-fulfillment-api",
+		"name": "Order Fulfillment API",
+		"description": "Colección de Postman para probar la API de Order Fulfillment",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Orders",
+			"item": [
+				{
+					"name": "Create Order",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set(\"orderId\", response.id);",
+									"    pm.environment.set(\"deliveryId\", response.deliveryId || \"\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"customerId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"deliveryAddress\": \"Av. Corrientes 1234, CABA\",\n  \"totalAmount\": 1500.50\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/orders",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"orders"
+							]
+						},
+						"description": "Crea un nuevo pedido. El pedido se crea con estado PLACED y se publica el evento OrderPlaced en Kafka."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Order by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/orders/{{orderId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"orders",
+								"{{orderId}}"
+							]
+						},
+						"description": "Obtiene la información completa de un pedido por su ID."
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints para gestión de pedidos"
+		},
+		{
+			"name": "Deliveries",
+			"item": [
+				{
+					"name": "Get Delivery by Order ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/deliveries/order/{{orderId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"deliveries",
+								"order",
+								"{{orderId}}"
+							]
+						},
+						"description": "Obtiene la información de la entrega asociada a un pedido."
+					},
+					"response": []
+				},
+				{
+					"name": "Complete Delivery",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Primero obtener el deliveryId si no está en el environment",
+									"if (!pm.environment.get(\"deliveryId\") || pm.environment.get(\"deliveryId\") === \"\") {",
+									"    pm.sendRequest({",
+									"        url: pm.environment.get(\"baseUrl\") + \"/api/deliveries/order/\" + pm.environment.get(\"orderId\"),",
+									"        method: 'GET'",
+									"    }, function (err, res) {",
+									"        if (res.json()) {",
+									"            pm.environment.set(\"deliveryId\", res.json().id);",
+									"        }",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/deliveries/{{deliveryId}}/complete",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"deliveries",
+								"{{deliveryId}}",
+								"complete"
+							]
+						},
+						"description": "Completa una entrega y marca el pedido asociado como DELIVERED."
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints para gestión de entregas"
+		},
+		{
+			"name": "Actuator",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"health"
+							]
+						},
+						"description": "Verifica el estado de salud de la aplicación."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Metrics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/metrics",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"metrics"
+							]
+						},
+						"description": "Obtiene todas las métricas disponibles."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Orders Created Metric",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/metrics/orders_created_total",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"metrics",
+								"orders_created_total"
+							]
+						},
+						"description": "Obtiene la métrica de pedidos creados."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Events Processed Metric",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/actuator/metrics/events_processed_total",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"actuator",
+								"metrics",
+								"events_processed_total"
+							]
+						},
+						"description": "Obtiene la métrica de eventos procesados."
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints de Actuator para monitoreo"
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "orderId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "deliveryId",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
+
+

@@ -9,8 +9,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Inicializador de datos para desarrollo.
- * Crea couriers de ejemplo para poder probar el sistema.
+ * Data initializer for development.
+ * Creates sample couriers to test the system.
  */
 @Configuration
 public class DataInitializer {

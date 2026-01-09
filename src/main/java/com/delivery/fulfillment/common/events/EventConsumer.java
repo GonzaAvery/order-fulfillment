@@ -15,8 +15,8 @@ import org.springframework.stereotype.Component;
 import java.util.UUID;
 
 /**
- * Consumidor de eventos de Kafka.
- * Maneja la deserialización, idempotencia persistente y routing de eventos.
+ * Kafka event consumer.
+ * Handles deserialization, persistent idempotency, and event routing.
  */
 @Component
 public class EventConsumer {
@@ -40,7 +40,7 @@ public class EventConsumer {
 		this.idempotencyService = idempotencyService;
 		this.metricsService = metricsService;
 		
-		// Registrar subtipos de eventos para deserialización polimórfica
+		// Register event subtypes for polymorphic deserialization
 		registerEventSubtypes();
 	}
 	
@@ -60,11 +60,11 @@ public class EventConsumer {
 	                         @Header(KafkaHeaders.RECEIVED_KEY) String key,
 	                         Acknowledgment acknowledgment) {
 		try {
-			// Deserializar evento
+			// Deserialize event
 			DomainEvent event = objectMapper.readValue(message, DomainEvent.class);
 			
-			// Verificar idempotencia persistente
-			// Intenta registrar el evento. Si ya existe, retorna false.
+			// Verify persistent idempotency
+			// Attempts to register the event. If it already exists, returns false.
 			boolean isNewEvent = idempotencyService.tryProcessEvent(
 				event.getEventId(), 
 				event.getEventType(), 
@@ -81,25 +81,25 @@ public class EventConsumer {
 			logger.info("Consuming event: type={}, eventId={}, correlationId={}", 
 				event.getEventType(), event.getEventId(), event.getCorrelationId());
 			
-			// Routing de eventos
+			// Event routing
 			fulfillmentEventRouter.route(event);
 			notificationEventRouter.route(event);
 			
-			// Registrar métrica de evento procesado exitosamente
+			// Record metric for successfully processed event
 			metricsService.incrementEventsProcessed();
 			
-			// Acknowledge después de procesamiento exitoso
+			// Acknowledge after successful processing
 			acknowledgment.acknowledge();
 			
 		} catch (Exception e) {
 			logger.error("Error processing event: key={}", key, e);
 			
-			// Registrar métrica de evento fallido
+			// Record metric for failed event
 			metricsService.incrementEventsFailed();
 			
-			// En producción, esto debería enviar a DLQ después de N reintentos
-			// Por ahora, no hacemos acknowledge para que Kafka reintente
-			// En un sistema real, implementar retry con exponential backoff
+			// In production, this should send to DLQ after N retries
+			// For now, we don't acknowledge so Kafka retries
+			// In a real system, implement retry with exponential backoff
 		}
 	}
 }

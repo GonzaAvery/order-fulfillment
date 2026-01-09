@@ -15,8 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
 /**
- * Servicio de Fulfillment que orquesta el flujo completo del pedido.
- * Consume eventos y coordina acciones entre Order Service y Delivery Service.
+ * Fulfillment service that orchestrates the complete order flow.
+ * Consumes events and coordinates actions between Order Service and Delivery Service.
  */
 @Service
 public class FulfillmentService {
@@ -34,8 +34,8 @@ public class FulfillmentService {
 	}
 	
 	/**
-	 * Procesa el evento OrderPlaced.
-	 * Acepta el pedido y crea la entrega asociada.
+	 * Processes the OrderPlaced event.
+	 * Accepts the order and creates the associated delivery.
 	 */
 	@Transactional
 	public void handleOrderPlaced(OrderPlaced event) {
@@ -44,25 +44,25 @@ public class FulfillmentService {
 			orderId, event.getCorrelationId());
 		
 		try {
-			// 1. Aceptar el pedido
+			// 1. Accept the order
 			orderService.updateOrderStatus(orderId, OrderStatus.ACCEPTED);
 			
-			// 2. Publicar evento OrderAccepted
+			// 2. Publish OrderAccepted event
 			com.delivery.fulfillment.order.events.OrderAccepted orderAcceptedEvent = 
 				new com.delivery.fulfillment.order.events.OrderAccepted(event.getCorrelationId(), orderId);
 			eventPublisher.publish(orderAcceptedEvent);
 			
-			// 3. Crear la entrega
+			// 3. Create the delivery
 			UUID deliveryId = deliveryService.createDelivery(orderId, event.getDeliveryAddress());
 			
-			// 4. Asociar la entrega al pedido
+			// 4. Associate the delivery to the order
 			orderService.assignDelivery(orderId, deliveryId);
 			
 			logger.info("Order fulfillment initiated: orderId={}, deliveryId={}", orderId, deliveryId);
 			
 		} catch (Exception e) {
 			logger.error("Failed to process OrderPlaced event: orderId={}", orderId, e);
-			// Marcar pedido como fallido
+			// Mark order as failed
 			orderService.updateOrderStatus(orderId, OrderStatus.FAILED);
 			
 			com.delivery.fulfillment.order.events.OrderFailed orderFailedEvent = 
@@ -76,8 +76,8 @@ public class FulfillmentService {
 	}
 	
 	/**
-	 * Procesa el evento CourierAssigned.
-	 * Actualiza el estado del pedido a PICKED_UP cuando el courier recoge el pedido.
+	 * Processes the CourierAssigned event.
+	 * Updates the order status to PICKED_UP when the courier picks up the order.
 	 */
 	@Transactional
 	public void handleCourierAssigned(CourierAssigned event) {
@@ -85,14 +85,14 @@ public class FulfillmentService {
 		logger.info("Processing CourierAssigned event: orderId={}, courierId={}", 
 			orderId, event.getCourierId());
 		
-		// Simular que el courier recoge el pedido después de ser asignado
-		// En un sistema real, esto podría ser un evento separado "OrderPickedUp"
+		// Simulate that the courier picks up the order after being assigned
+		// In a real system, this could be a separate "OrderPickedUp" event
 		try {
 			orderService.updateOrderStatus(orderId, OrderStatus.PICKED_UP);
 			deliveryService.updateDeliveryStatus(event.getDeliveryId(), DeliveryStatus.PICKED_UP);
 			
-			// Simular transición a IN_TRANSIT después de un breve delay
-			// En producción, esto sería un evento real cuando el courier inicia el viaje
+			// Simulate transition to IN_TRANSIT after a brief delay
+			// In production, this would be a real event when the courier starts the trip
 			orderService.updateOrderStatus(orderId, OrderStatus.IN_TRANSIT);
 			deliveryService.updateDeliveryStatus(event.getDeliveryId(), DeliveryStatus.IN_TRANSIT);
 			
@@ -102,18 +102,18 @@ public class FulfillmentService {
 	}
 	
 	/**
-	 * Completa un pedido cuando la entrega se completa.
+	 * Completes an order when the delivery is completed.
 	 */
 	@Transactional
 	public void completeOrder(UUID orderId, UUID deliveryId) {
 		logger.info("Completing order: orderId={}, deliveryId={}", orderId, deliveryId);
 		
 		try {
-			// Actualizar estados
+			// Update states
 			orderService.updateOrderStatus(orderId, OrderStatus.DELIVERED);
 			deliveryService.completeDelivery(deliveryId);
 			
-			// Publicar evento de completación
+			// Publish completion event
 			com.delivery.fulfillment.order.events.OrderCompleted orderCompletedEvent = 
 				new com.delivery.fulfillment.order.events.OrderCompleted(orderId, orderId, deliveryId);
 			eventPublisher.publish(orderCompletedEvent);

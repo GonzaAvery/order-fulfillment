@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
- * DTO para crear un nuevo pedido.
+ * DTO for creating a new order.
  */
 public record CreateOrderRequest(
 	@NotNull(message = "Customer ID is required")

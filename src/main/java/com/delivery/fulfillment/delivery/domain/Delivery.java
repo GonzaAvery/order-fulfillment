@@ -5,8 +5,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Entidad que representa una entrega.
- * Gestiona el ciclo de vida de la ejecución logística del pedido.
+ * Entity that represents a delivery.
+ * Manages the lifecycle of the order's logistical execution.
  */
 @Entity
 @Table(name = "deliveries")
@@ -44,7 +44,7 @@ public class Delivery {
 	@Column
 	private Instant estimatedDeliveryTime;
 	
-	// Constructor para JPA
+	// Constructor for JPA
 	protected Delivery() {
 	}
 	
@@ -58,7 +58,7 @@ public class Delivery {
 	}
 	
 	/**
-	 * Transiciona el estado de la entrega validando que la transición sea válida.
+	 * Transitions the delivery state validating that the transition is valid.
 	 */
 	public void transitionTo(DeliveryStatus newStatus) {
 		if (!this.status.canTransitionTo(newStatus)) {
@@ -71,7 +71,7 @@ public class Delivery {
 	}
 	
 	/**
-	 * Asigna un courier a la entrega.
+	 * Assigns a courier to the delivery.
 	 */
 	public void assignCourier(UUID courierId, String courierName) {
 		if (this.status != DeliveryStatus.PENDING) {
@@ -85,7 +85,7 @@ public class Delivery {
 	}
 	
 	/**
-	 * Marca la entrega como fallida con una razón.
+	 * Marks the delivery as failed with a reason.
 	 */
 	public void markAsFailed(String reason) {
 		transitionTo(DeliveryStatus.FAILED);
@@ -93,7 +93,7 @@ public class Delivery {
 	}
 	
 	/**
-	 * Establece el tiempo estimado de entrega.
+	 * Sets the estimated delivery time.
 	 */
 	public void setEstimatedDeliveryTime(Instant estimatedDeliveryTime) {
 		this.estimatedDeliveryTime = estimatedDeliveryTime;

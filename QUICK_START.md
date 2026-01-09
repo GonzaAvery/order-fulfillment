@@ -1,116 +1,85 @@
 # Quick Start Guide
 
-Este guía te permite levantar el sistema completo en minutos.
+Quick guide to start the system in 3 commands.
 
-## Prerrequisitos
+## Prerequisites
 
-- Docker y Docker Compose instalados
+- Docker and Docker Compose
 - Java 21
 - Maven 3.6+
 
-## Pasos para levantar el sistema
-
-### 1. Levantar infraestructura (PostgreSQL + Kafka)
+## Demo in 3 Commands
 
 ```bash
+# 1. Start infrastructure (PostgreSQL + Kafka)
 docker-compose up -d
-```
 
-Esto levanta:
-- **PostgreSQL** en puerto `5432`
-- **Zookeeper** en puerto `2181`
-- **Kafka** en puerto `9092`
-- **Kafka UI** en puerto `8081` (opcional, para visualizar topics y mensajes)
-
-Verifica que los servicios estén listos:
-
-```bash
-docker-compose ps
-```
-
-Todos los servicios deben estar en estado "Up" y saludables.
-
-### 2. Levantar la aplicación
-
-```bash
+# 2. Start the application
 mvn spring-boot:run
+
+# 3. Create an order and see the flow
+curl -X POST http://localhost:8080/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{"customerId":"550e8400-e29b-41d4-a716-446655440000","deliveryAddress":"Av. Corrientes 1234, CABA","totalAmount":1500.50}'
 ```
 
-La aplicación se levantará en `http://localhost:8080`
+## Verify It Works
 
-### 3. Verificar que todo funciona
-
-#### Health Check
-
+### Health Check
 ```bash
 curl http://localhost:8080/actuator/health
 ```
 
-#### Crear un pedido
-
+### Query the Order
 ```bash
-curl -X POST http://localhost:8080/api/orders \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customerId": "550e8400-e29b-41d4-a716-446655440000",
-    "deliveryAddress": "Av. Corrientes 1234, CABA",
-    "totalAmount": 1500.50
-  }'
-```
-
-#### Consultar el pedido
-
-```bash
+# Replace {orderId} with the ID from the previous response
 curl http://localhost:8080/api/orders/{orderId}
 ```
 
-Reemplaza `{orderId}` con el ID retornado en el paso anterior.
+### View Events in Kafka UI
+Open `http://localhost:8081` → Topics → `order-events` → Messages
 
-#### Verificar eventos en Kafka UI
+### View API Documentation
+Open `http://localhost:8080/swagger-ui.html`
 
-Abre tu navegador en `http://localhost:8081` y navega a:
-- Topics → `order-events` → Messages
-- Deberías ver los eventos publicados
-
-## Detener el sistema
+## Stop the System
 
 ```bash
-# Detener la aplicación (Ctrl+C en la terminal donde corre)
+# Stop the application (Ctrl+C in the terminal where it's running)
 
-# Detener infraestructura
+# Stop infrastructure
 docker-compose down
 
-# Detener y eliminar volúmenes (limpiar datos)
+# Stop and remove volumes (clean data)
 docker-compose down -v
 ```
 
 ## Troubleshooting
 
-### Kafka no está disponible
+### Kafka is not available
 
-Si ves errores de conexión a Kafka:
-1. Verifica que Kafka esté corriendo: `docker-compose ps`
-2. Espera unos segundos para que Kafka termine de inicializar
-3. Revisa logs: `docker-compose logs kafka`
+If you see Kafka connection errors:
+1. Verify Kafka is running: `docker-compose ps`
+2. Wait a few seconds for Kafka to finish initializing
+3. Check logs: `docker-compose logs kafka`
 
-### PostgreSQL no está disponible
+### PostgreSQL is not available
 
-Si ves errores de conexión a PostgreSQL:
-1. Verifica que PostgreSQL esté corriendo: `docker-compose ps`
-2. Verifica que la base de datos exista: `docker-compose exec postgres psql -U postgres -l`
-3. Si no existe, créala: `docker-compose exec postgres psql -U postgres -c "CREATE DATABASE order_fulfillment;"`
+If you see PostgreSQL connection errors:
+1. Verify PostgreSQL is running: `docker-compose ps`
+2. Verify the database exists: `docker-compose exec postgres psql -U postgres -l`
+3. If it doesn't exist, create it: `docker-compose exec postgres psql -U postgres -c "CREATE DATABASE order_fulfillment;"`
 
-### La aplicación no arranca
+### Application doesn't start
 
-1. Verifica que Java 21 esté instalado: `java -version`
-2. Verifica que Maven esté instalado: `mvn -version`
-3. Revisa los logs de la aplicación para errores específicos
+1. Verify Java 21 is installed: `java -version`
+2. Verify Maven is installed: `mvn -version`
+3. Check application logs for specific errors
 
-## Próximos pasos
+## Next Steps
 
-Una vez que el sistema esté corriendo, puedes:
-- Explorar la API en `http://localhost:8080/actuator`
-- Ver métricas en `http://localhost:8080/actuator/metrics`
-- Explorar eventos en Kafka UI en `http://localhost:8081`
-- Revisar los logs estructurados con `correlationId` para seguir el flujo de un pedido
-
+Once the system is running, you can:
+- Explore the API at `http://localhost:8080/actuator`
+- View metrics at `http://localhost:8080/actuator/metrics`
+- Explore events in Kafka UI at `http://localhost:8081`
+- Review structured logs with `correlationId` to follow an order flow
